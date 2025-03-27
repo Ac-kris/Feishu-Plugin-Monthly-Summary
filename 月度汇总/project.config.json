@@ -1,0 +1,11 @@
+{
+  "setting": {
+    "es6": true,
+    "minified": true
+  },
+  "appid": "cli_a76fb3ef2472100c",
+  "projectname": "月度汇总",
+  "blocks": [
+    "block/index"
+  ]
+}

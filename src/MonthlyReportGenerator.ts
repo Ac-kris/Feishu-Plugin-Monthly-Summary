@@ -1,4 +1,14 @@
-import { bitable, FieldType, ITable, IField, ICurrencyField, INumberField, ISingleSelectField, IDateTimeField } from '@lark-base-open/js-sdk';
+import { 
+  bitable, 
+  FieldType, 
+  ITable, 
+  ICurrencyField, 
+  INumberField, 
+  ISingleSelectField, 
+  IDateTimeField,
+  NumberFormatter,
+  CurrencyCode
+} from '@lark-base-open/js-sdk';
 
 /**
  * 月度制备费汇总表生成器
@@ -38,7 +48,15 @@ export class MonthlyReportGenerator {
     // 创建新表
     const monthStr = String(month);
     const newTableName = `${monthStr}月支付细胞工程制剂制备费`;
-    const newTable = await bitable.base.addTable({ name: newTableName });
+    
+    // 修复addTable的参数类型，添加必要的fields属性
+    const newTableResult = await bitable.base.addTable({ 
+      name: newTableName,
+      fields: []
+    });
+    
+    // 获取新创建的表
+    const newTable = await bitable.base.getTableById(newTableResult.tableId);
     
     // 创建字段
     await this.createFields(newTable);
@@ -65,7 +83,7 @@ export class MonthlyReportGenerator {
       type: FieldType.Number,
       name: this.TARGET_FIELD_NAMES.PERSON_COUNT,
       property: {
-        formatter: "0"
+        formatter: NumberFormatter.INTEGER
       }
     });
     
@@ -74,7 +92,7 @@ export class MonthlyReportGenerator {
       type: FieldType.Number,
       name: this.TARGET_FIELD_NAMES.SHARES,
       property: {
-        formatter: "0.00"
+        formatter: NumberFormatter.DIGITAL_ROUNDED_2
       }
     });
     
@@ -83,7 +101,7 @@ export class MonthlyReportGenerator {
       type: FieldType.Currency,
       name: this.TARGET_FIELD_NAMES.PREPARATION_FEE,
       property: {
-        currencyCode: "CNY"
+        currencyCode: CurrencyCode.CNY
       }
     });
     
@@ -92,7 +110,7 @@ export class MonthlyReportGenerator {
       type: FieldType.Currency,
       name: this.TARGET_FIELD_NAMES.REWARD_DEDUCTION,
       property: {
-        currencyCode: "CNY"
+        currencyCode: CurrencyCode.CNY
       }
     });
     
@@ -101,7 +119,7 @@ export class MonthlyReportGenerator {
       type: FieldType.Currency,
       name: this.TARGET_FIELD_NAMES.CANCEL_FEE,
       property: {
-        currencyCode: "CNY"
+        currencyCode: CurrencyCode.CNY
       }
     });
     
@@ -110,7 +128,7 @@ export class MonthlyReportGenerator {
       type: FieldType.Currency,
       name: this.TARGET_FIELD_NAMES.URGENT_FEE,
       property: {
-        currencyCode: "CNY"
+        currencyCode: CurrencyCode.CNY
       }
     });
   }
@@ -180,9 +198,12 @@ export class MonthlyReportGenerator {
       // 如果没有产品类别则跳过
       if (!productCategory) continue;
       
+      // 将单选值转换为字符串用作键
+      const categoryKey = String(productCategory);
+      
       // 初始化分组数据
-      if (!groupedData[productCategory]) {
-        groupedData[productCategory] = {
+      if (!groupedData[categoryKey]) {
+        groupedData[categoryKey] = {
           count: 0,
           shares: 0,
           preparationFee: 0,
@@ -193,36 +214,36 @@ export class MonthlyReportGenerator {
       }
       
       // 累加计数
-      groupedData[productCategory].count += 1;
+      groupedData[categoryKey].count += 1;
       
       // 累加份数
       const sharesValue = await sharesField.getValue(recordId);
       if (sharesValue !== null && sharesValue !== undefined) {
-        groupedData[productCategory].shares += Number(sharesValue);
+        groupedData[categoryKey].shares += Number(sharesValue);
       }
       
       // 累加制备费
       const preparationFeeValue = await preparationFeeField.getValue(recordId);
       if (preparationFeeValue !== null && preparationFeeValue !== undefined) {
-        groupedData[productCategory].preparationFee += Number(preparationFeeValue);
+        groupedData[categoryKey].preparationFee += Number(preparationFeeValue);
       }
       
       // 累加出库订单奖励扣减
       const rewardDeductionValue = await rewardDeductionField.getValue(recordId);
       if (rewardDeductionValue !== null && rewardDeductionValue !== undefined) {
-        groupedData[productCategory].rewardDeduction += Number(rewardDeductionValue);
+        groupedData[categoryKey].rewardDeduction += Number(rewardDeductionValue);
       }
       
       // 累加制剂取消收取费用
       const cancelFeeValue = await cancelFeeField.getValue(recordId);
       if (cancelFeeValue !== null && cancelFeeValue !== undefined) {
-        groupedData[productCategory].cancelFee += Number(cancelFeeValue);
+        groupedData[categoryKey].cancelFee += Number(cancelFeeValue);
       }
       
       // 累加制剂加急/非正常出库时间收取费用
       const urgentFeeValue = await urgentFeeField.getValue(recordId);
       if (urgentFeeValue !== null && urgentFeeValue !== undefined) {
-        groupedData[productCategory].urgentFee += Number(urgentFeeValue);
+        groupedData[categoryKey].urgentFee += Number(urgentFeeValue);
       }
     }
     
@@ -248,27 +269,43 @@ export class MonthlyReportGenerator {
     // 验证字段是否存在
     if (!projectFieldId || !personCountFieldId || !sharesFieldId || 
         !preparationFeeFieldId || !rewardDeductionFieldId || !cancelFeeFieldId || !urgentFeeFieldId) {
-      throw new Error('新表中缺少必要的字段');
+      throw new Error('新表字段创建失败');
     }
     
-    // 准备记录数据
-    const records = Object.entries(groupedData).map(([productCategory, data]) => {
-      return {
-        fields: {
-          [projectFieldId]: productCategory,
-          [personCountFieldId]: data.count,
-          [sharesFieldId]: data.shares.toFixed(2),
-          [preparationFeeFieldId]: data.preparationFee.toFixed(2),
-          [rewardDeductionFieldId]: data.rewardDeduction.toFixed(2),
-          [cancelFeeFieldId]: data.cancelFee.toFixed(2),
-          [urgentFeeFieldId]: data.urgentFee.toFixed(2)
-        }
-      };
-    });
+    // 获取字段对象
+    const projectField = await newTable.getField(projectFieldId);
+    const personCountField = await newTable.getField(personCountFieldId);
+    const sharesField = await newTable.getField(sharesFieldId);
+    const preparationFeeField = await newTable.getField(preparationFeeFieldId);
+    const rewardDeductionField = await newTable.getField(rewardDeductionFieldId);
+    const cancelFeeField = await newTable.getField(cancelFeeFieldId);
+    const urgentFeeField = await newTable.getField(urgentFeeFieldId);
     
-    // 批量添加记录
-    if (records.length > 0) {
-      await newTable.addRecords(records);
+    // 遍历分组数据，创建记录
+    for (const [productCategory, data] of Object.entries(groupedData)) {
+      // 创建新记录
+      const recordId = await newTable.addRecord();
+      
+      // 设置项目（产品类别）
+      await projectField.setValue(recordId, productCategory);
+      
+      // 设置人数
+      await personCountField.setValue(recordId, data.count);
+      
+      // 设置份数
+      await sharesField.setValue(recordId, data.shares);
+      
+      // 设置制备费
+      await preparationFeeField.setValue(recordId, data.preparationFee);
+      
+      // 设置出库订单奖励扣减
+      await rewardDeductionField.setValue(recordId, data.rewardDeduction);
+      
+      // 设置制剂取消收取费用
+      await cancelFeeField.setValue(recordId, data.cancelFee);
+      
+      // 设置制剂加急/非正常出库时间收取费用
+      await urgentFeeField.setValue(recordId, data.urgentFee);
     }
   }
 } 

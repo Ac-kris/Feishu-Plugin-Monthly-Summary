@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { bitable, ITable } from '@lark-base-open/js-sdk';
+import { bitable } from '@lark-base-open/js-sdk';
 import { Select, Button, message, Spin } from 'antd';
 import { MonthlyReportGenerator } from './MonthlyReportGenerator';
 import './App.css';
@@ -7,6 +7,12 @@ import './App.css';
 interface TableOption {
   label: string;
   value: string;
+}
+
+// 定义表格信息接口，与API返回值匹配
+interface TableMeta {
+  id: string;
+  name: string;
 }
 
 interface MonthOption {
@@ -31,8 +37,9 @@ function App() {
   useEffect(() => {
     async function loadTables() {
       try {
-        const tableList = await bitable.base.getTables();
-        const tableOptions = tableList.map((table) => ({
+        // 获取表格列表元数据
+        const tableMetaList = await bitable.base.getTableMetaList();
+        const tableOptions = tableMetaList.map((table: TableMeta) => ({
           label: table.name,
           value: table.id
         }));
