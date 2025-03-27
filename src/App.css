@@ -1,13 +1,19 @@
 .container {
-  width: 100%;
-  max-width: 480px;
-  margin: 0 auto;
   padding: 16px;
+  max-width: 800px;
+  margin: 0 auto;
   box-sizing: border-box;
+  animation: fadeIn 0.3s ease-in-out;
 }
 
 .form-item {
   margin-bottom: 16px;
+}
+
+.form-item label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: bold;
 }
 
 .loading-container {
@@ -15,4 +21,47 @@
   justify-content: center;
   align-items: center;
   padding: 24px 0;
+  min-height: 120px;
+}
+
+.error-message {
+  margin-bottom: 16px;
+}
+
+/* 适配移动设备 */
+@media (max-width: 576px) {
+  .container {
+    padding: 12px;
+  }
+}
+
+/* 添加飞书多维表格主题颜色 */
+:root {
+  --primary-color: #2e6be6;
+  --background-color: #f5f6f7;
+  --border-color: #e5e6e8;
+}
+
+/* 增加动画效果 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 按钮悬停效果 */
+button:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+/* 表单项聚焦效果 */
+.ant-select-focused .ant-select-selector {
+  box-shadow: 0 0 0 2px rgba(46, 107, 230, 0.2) !important;
 } 

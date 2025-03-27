@@ -1,11 +1,11 @@
 {
-  "name": "feishu-plugin-monthly-summary",
+  "name": "lark-base-monthly-summary",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
